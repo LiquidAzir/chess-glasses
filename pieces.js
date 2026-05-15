@@ -27,32 +27,35 @@ const PIECES = {
     <path d="M 26 36 L 74 36 L 74 30 L 64 30 L 64 22 L 56 22 L 56 30 L 53 30 L 53 22 L 47 22 L 47 30 L 44 30 L 44 22 L 36 22 L 36 30 L 26 30 Z"/>
   `,
 
-  // Knight — stylised horse head facing right with mane and ear.
+  // Knight — horse head profile facing right. The head + neck silhouette fills
+  // the upper portion of the piece (no separate collar/breast); only the
+  // shared base + stand sits underneath. Distinct features for legibility:
+  //   - long muzzle protruding right with a defined nose tip
+  //   - rounded forehead and a sharp pointed ear at the top
+  //   - thick crested mane curving down the back of the neck
+  //   - small eye dot on the cheek
   n: `
     <ellipse cx="50" cy="88" rx="32" ry="5"/>
     <path d="M 24 84 L 76 84 L 72 78 L 28 78 Z"/>
-    <path d="M 30 78 L 70 78 L 66 60 L 34 60 Z"/>
     <path d="
-      M 34 60
-      L 34 48
-      Q 34 40 38 36
-      L 44 30
-      Q 48 22 56 18
-      L 64 14
-      L 70 10
-      L 74 18
-      L 76 28
-      Q 76 38 70 42
-      L 64 44
-      L 60 40
-      L 55 44
-      L 50 52
-      L 60 56
-      L 66 58
-      L 66 60
+      M 30 78
+      C 24 70 22 58 26 48
+      C 30 38 38 32 48 30
+      L 52 22
+      L 56 6
+      L 64 22
+      L 60 28
+      C 70 28 80 32 86 38
+      L 80 44
+      C 72 42 64 42 56 42
+      L 50 46
+      L 50 54
+      C 52 60 56 64 62 64
+      L 76 66
+      L 78 78
       Z
     "/>
-    <circle cx="60" cy="30" r="2.2" fill="#0a0a0a"/>
+    <circle cx="56" cy="26" r="2.4" fill="#1a1a1a"/>
   `,
 
   // Bishop — tall mitre with diagonal slit and top finial.
