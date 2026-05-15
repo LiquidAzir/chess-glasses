@@ -2,11 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=600, height=600, initial-scale=1.0, user-scalable=no">
-  <title>Chess</title>
+  <meta name="viewport" id="viewport" content="width=600, height=600, initial-scale=1.0, user-scalable=no">
+  <title>Chess for Display Glasses</title>
+  <meta name="description" content="A simple, full-color chess game built for Meta Ray-Ban Display smart glasses.">
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // On phones the 600x600 layout doesn't fit. Rewrite the viewport so the
+    // browser scales the whole page to the device width — playable, just zoomed.
+    (function () {
+      var w = Math.min(window.innerWidth, window.screen.width || 600);
+      if (w < 600) {
+        var vp = document.getElementById('viewport');
+        vp.setAttribute('content', 'width=600, initial-scale=' + (w / 600) + ', user-scalable=yes');
+        document.documentElement.classList.add('is-phone');
+      }
+    })();
+  </script>
 </head>
 <body>
   <div id="app">
@@ -156,6 +169,21 @@
     </div>
 
   </div>
+
+  <!-- Phone-only hint (CSS-shown on small viewports). Sits outside #app so the
+       viewport-scale transform on phones doesn't shrink it. -->
+  <div id="phone-hint" class="phone-hint">Built for Meta Ray-Ban Display Glasses</div>
+
+  <!-- ===========================================================
+       Analytics (GoatCounter — privacy-light, no cookies, free for
+       personal use). To enable: sign up at https://www.goatcounter.com,
+       pick a subdomain, and replace YOURCODE below. Until then this
+       block stays commented so it doesn't 404 in users' browsers.
+       ============================================================ -->
+  <!--
+  <script data-goatcounter="https://YOURCODE.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
+  -->
 
   <script type="module" src="app.js"></script>
 </body>

@@ -491,3 +491,26 @@ html, body {
 }
 
 .hidden { display: none !important; }
+
+/* ============================================================
+   Phone hint banner — shown only on phone-sized viewports.
+   The inline <head> script rewrites the viewport meta so the
+   600x600 layout scales down to fit the phone width. CSS sizes
+   below are deliberately large so the banner stays legible
+   after the page is scaled by the browser.
+   ============================================================ */
+.phone-hint { display: none; }
+
+html.is-phone .phone-hint {
+  display: block;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(20, 20, 26, 0.92);
+  color: var(--text);
+  font-size: 22px;
+  text-align: center;
+  padding: 14px 12px;
+  letter-spacing: 0.3px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  z-index: 1000;
+}

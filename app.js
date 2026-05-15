@@ -370,7 +370,8 @@ function maybeAiMove() {
   updateStatus();
   const id = ++state.reqId;
   const fen = state.game.fen();
-  const cfg = CONFIG.difficulty[state.difficulty];
+  // Defensive fallback in case state.difficulty was set outside of the menu flow.
+  const cfg = CONFIG.difficulty[state.difficulty] || CONFIG.difficulty.medium;
   const startedAt = Date.now();
 
   ensureWorker().postMessage({ id, fen, depth: cfg.depth, timeMs: cfg.timeMs });
@@ -498,8 +499,10 @@ function loadData() {
     state.game = new Chess();
     if (p.pgn) state.game.loadPgn(p.pgn);
     else if (p.fen) state.game.load(p.fen);
-    state.human = p.human || 'w';
-    state.difficulty = p.difficulty || 'medium';
+    state.human = (p.human === 'w' || p.human === 'b') ? p.human : 'w';
+    // Validate difficulty against the known config so a stale/corrupted save
+    // (e.g. from a future version that renamed keys) can't crash the engine.
+    state.difficulty = CONFIG.difficulty[p.difficulty] ? p.difficulty : 'medium';
     state.lastMove = p.lastMove || null;
     state.cursor = state.human === 'w' ? { f: 4, r: 6 } : { f: 4, r: 1 };
   } catch (e) {
