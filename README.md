@@ -24,3 +24,7 @@ Use arrow keys to move the cursor, Enter to select/move, Escape for the pause me
 ## Hosting
 
 Deploys as a Render Static Site (or any static-file host with HTTPS). Add the deployed URL to the Meta AI app under **Devices → Display Glasses → App connections → Web apps**.
+
+## License
+
+This project is released under the [MIT License](LICENSE). Bundled third-party software (chess.js, BSD 2-Clause) is listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
