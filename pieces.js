@@ -1,9 +1,11 @@
 // Original chess piece silhouettes for the MRBD glasses chess app.
 // Each piece is drawn inside a 100x100 viewBox with currentColor fills,
-// so colour is driven by CSS (.piece-white vs .piece-red).
+// so colour is driven by CSS (.piece-white vs .piece-black).
 //
 // Designed chunky and high-contrast so the silhouettes still read at
-// the small ~56px display size on the glasses.
+// the small ~56px display size on the glasses. On the additive display,
+// black pieces appear as silhouettes — the surrounding colored square
+// emits light, making the piece shape visible by absence of light.
 
 const PIECES = {
   // Pawn — round head, flared skirt, stacked base.
@@ -94,6 +96,6 @@ const PIECES = {
 
 export function pieceSvg(type, color) {
   // type: 'p'|'r'|'n'|'b'|'q'|'k'   color: 'w'|'b'
-  const cls = color === 'w' ? 'piece piece-white' : 'piece piece-red';
+  const cls = color === 'w' ? 'piece piece-white' : 'piece piece-black';
   return `<svg class="${cls}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${PIECES[type]}</svg>`;
 }

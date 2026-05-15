@@ -28,9 +28,10 @@
   --dot-move:       rgba(40, 200, 80, 0.85);
   --dot-capture:    rgba(220, 50, 50, 0.85);
 
-  /* pieces */
+  /* pieces — black is intentional: on the additive display the colored squares
+     emit light around the piece, so the silhouette reads cleanly */
   --piece-white:    #ffffff;
-  --piece-red:      #c92626;
+  --piece-black:    #000000;
 
   /* layout */
   --board-px:       528px;
@@ -223,7 +224,12 @@ html, body {
   background: var(--piece-white);
   box-shadow: 0 0 0 1px rgba(255,255,255,0.2);
 }
-.turn-pill.red .turn-dot { background: var(--piece-red); }
+/* Black-pieces indicator: black fill with a thin white outline so it stays
+   visible on the dark UI surface (where pure black would disappear). */
+.turn-pill.black .turn-dot {
+  background: #000;
+  box-shadow: 0 0 0 1.5px var(--text);
+}
 .turn-pill.thinking { color: var(--text-dim); }
 
 .icon-btn {
@@ -352,7 +358,7 @@ html, body {
   filter: drop-shadow(0 2px 2px rgba(0,0,0,0.45));
 }
 .piece-white { color: var(--piece-white); fill: currentColor; }
-.piece-red   { color: var(--piece-red);   fill: currentColor; }
+.piece-black { color: var(--piece-black); fill: currentColor; }
 
 /* Bottom status strip */
 .game-bottom {

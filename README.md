@@ -5,7 +5,7 @@ A simple, full-color chess game for Meta Ray-Ban Display smart glasses. D-pad na
 ## Features
 
 - 600×600 dark-theme UI tuned for the additive waveguide display
-- Full color: cream/brown board, white vs crimson pieces (since pure black is invisible on the display)
+- Full color: cream/brown board, classic white vs black pieces — the colored squares emit light around each piece so the black silhouettes read cleanly even on the additive display
 - D-pad cursor with Enter to select, legal-move dots, capture rings
 - Castling, en passant, pawn promotion, checkmate / stalemate / threefold / 50-move draw
 - AI opponent (chess.js for rules, custom negamax + alpha-beta in a Web Worker, iterative deepening)

@@ -26,7 +26,7 @@ const state = {
   currentScreen: 'menu',
   history: [],
   game: null,           // chess.js instance (active game) or null
-  human: 'w',           // 'w' = human plays white, 'b' = human plays red
+  human: 'w',           // 'w' = human plays white, 'b' = human plays black
   difficulty: 'medium',
   cursor: { f: 4, r: 6 }, // file 0..7, rank 0..7 (rank 0 = top of HTML grid = rank 8)
   selected: null,        // { f, r, square: 'e2', moves: [] }
@@ -163,7 +163,7 @@ function resign() {
   // Treat as a loss for the human.
   showGameOver({
     result: 'Resigned',
-    detail: state.human === 'w' ? 'Red wins' : 'White wins',
+    detail: state.human === 'w' ? 'Black wins' : 'White wins',
   });
 }
 
@@ -249,7 +249,7 @@ function renderBoard() {
 function updateStatus() {
   if (!state.game) return;
   const turn = state.game.turn();
-  turnPillEl.classList.toggle('red', turn === 'b');
+  turnPillEl.classList.toggle('black', turn === 'b');
   turnPillEl.classList.toggle('thinking', state.thinking);
 
   if (state.thinking) {
@@ -257,7 +257,7 @@ function updateStatus() {
   } else if (turn === state.human) {
     turnTextEl.textContent = 'Your move';
   } else {
-    turnTextEl.textContent = (turn === 'w' ? 'White' : 'Red') + ' to move';
+    turnTextEl.textContent = (turn === 'w' ? 'White' : 'Black') + ' to move';
   }
 
   lastMoveEl.textContent = state.lastMove
