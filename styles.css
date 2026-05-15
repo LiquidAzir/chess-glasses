@@ -1,0 +1,487 @@
+/* ============================================================
+   Chess for Meta Ray-Ban Display Glasses
+   600 x 600 viewport, additive display:
+     #000 = transparent (real world shows through)
+     UI surfaces use dark grey to remain visible
+     Pieces use white + crimson (black would be invisible)
+   ============================================================ */
+
+:root {
+  --bg-page:        #000000;          /* transparent on glasses */
+  --bg-surface:     #14141a;          /* visible UI panels */
+  --bg-surface-hi:  #1f1f29;
+  --bg-modal:       #0f0f15;
+  --text:           #ffffff;
+  --text-dim:       #b0b0bb;
+  --text-mute:      #707080;
+  --accent:         #00d4ff;
+  --accent-glow:    rgba(0, 212, 255, 0.55);
+  --danger:         #ff4466;
+
+  /* board */
+  --sq-light:       #e8c896;
+  --sq-dark:        #5c3a22;
+  --sq-cursor:      #00d4ff;
+  --sq-selected:    rgba(0, 212, 255, 0.55);
+  --sq-last:        rgba(255, 215, 0, 0.32);
+  --sq-check:       rgba(255, 60, 60, 0.55);
+  --dot-move:       rgba(40, 200, 80, 0.85);
+  --dot-capture:    rgba(220, 50, 50, 0.85);
+
+  /* pieces */
+  --piece-white:    #ffffff;
+  --piece-red:      #c92626;
+
+  /* layout */
+  --board-px:       528px;
+  --square-px:      66px;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 600px;
+  height: 600px;
+  overflow: hidden;
+  background: var(--bg-page);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  position: relative;
+  width: 600px;
+  height: 600px;
+}
+
+/* ---------- Screens ---------- */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+.screen.hidden { display: none; }
+
+.screen-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 8px;
+  flex-shrink: 0;
+}
+.screen-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  color: var(--text);
+  border: 2px solid transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ---------- Focus ring (universal) ---------- */
+.focusable { outline: none; transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease; }
+.focusable:focus,
+.focusable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent), 0 0 18px var(--accent-glow);
+}
+
+/* ============================================================
+   Main Menu
+   ============================================================ */
+.menu-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 28px;
+}
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.brand-mark {
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.brand-svg { width: 100%; height: 100%; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6)); }
+.brand-title {
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: 12px;
+  margin-left: 12px; /* compensate for trailing letter-spacing */
+}
+.brand-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 360px;
+}
+.menu-btn {
+  width: 100%;
+  padding: 16px 20px;
+  font-size: 17px;
+  font-weight: 600;
+  background: var(--bg-surface);
+  color: var(--text);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  text-align: center;
+  cursor: pointer;
+}
+.menu-btn.primary {
+  background: var(--accent);
+  color: #001018;
+}
+.menu-btn:focus { background: var(--bg-surface-hi); }
+.menu-btn.primary:focus { background: #33ddff; color: #001018; }
+
+/* ============================================================
+   Difficulty / Side picker
+   ============================================================ */
+.opt-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 24px 24px;
+  justify-content: center;
+}
+.opt-btn {
+  background: var(--bg-surface);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+}
+.opt-btn:focus { background: var(--bg-surface-hi); }
+.opt-title { font-size: 22px; font-weight: 700; }
+.opt-sub   { font-size: 14px; color: var(--text-dim); margin-top: 4px; }
+
+/* ============================================================
+   Game screen
+   ============================================================ */
+#game {
+  padding: 0;
+}
+.game-top {
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px 0;
+}
+.turn-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: var(--bg-surface);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.turn-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--piece-white);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.2);
+}
+.turn-pill.red .turn-dot { background: var(--piece-red); }
+.turn-pill.thinking { color: var(--text-dim); }
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  color: var(--text);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  font-size: 18px;
+  cursor: pointer;
+}
+.icon-bars { line-height: 1; }
+
+.board-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The board itself */
+.board {
+  width: var(--board-px);
+  height: var(--board-px);
+  display: grid;
+  grid-template-columns: repeat(8, var(--square-px));
+  grid-template-rows:    repeat(8, var(--square-px));
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.6);
+  cursor: default;
+}
+/* Suppress the universal cyan focus ring on the board itself —
+   the cursor square shows focus instead. */
+.board:focus, .board:focus-visible { box-shadow: 0 4px 18px rgba(0,0,0,0.6); }
+
+.sq {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sq.light { background: var(--sq-light); }
+.sq.dark  { background: var(--sq-dark); }
+
+/* Last-move highlight (subtle yellow tint over the square) */
+.sq.last::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--sq-last);
+  pointer-events: none;
+}
+
+/* In-check flash on the king's square */
+.sq.check::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--sq-check);
+  pointer-events: none;
+  animation: pulse-check 1s ease-in-out infinite alternate;
+}
+@keyframes pulse-check {
+  from { opacity: 0.55; }
+  to   { opacity: 0.85; }
+}
+
+/* Selected piece highlight */
+.sq.selected::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--sq-selected);
+  pointer-events: none;
+}
+
+/* Cursor (current focus square) */
+.sq.cursor {
+  z-index: 2;
+}
+.sq.cursor::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 3px solid var(--sq-cursor);
+  border-radius: 4px;
+  box-shadow: 0 0 14px var(--accent-glow);
+  pointer-events: none;
+  animation: pulse-cursor 1.4s ease-in-out infinite;
+}
+@keyframes pulse-cursor {
+  0%, 100% { box-shadow: 0 0 8px var(--accent-glow); }
+  50%      { box-shadow: 0 0 22px var(--accent-glow); }
+}
+
+/* Legal-move dots */
+.sq .dot {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--dot-move);
+  pointer-events: none;
+  z-index: 1;
+}
+.sq .dot.capture {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: 4px solid var(--dot-capture);
+  border-radius: 50%;
+}
+
+/* Pieces */
+.piece {
+  width: 84%;
+  height: 84%;
+  pointer-events: none;
+  z-index: 1;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.45));
+}
+.piece-white { color: var(--piece-white); fill: currentColor; }
+.piece-red   { color: var(--piece-red);   fill: currentColor; }
+
+/* Bottom status strip */
+.game-bottom {
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.last-move { font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
+.status-text { font-weight: 600; }
+.status-text.alert { color: var(--danger); }
+.status-text.win   { color: var(--accent); }
+
+/* ============================================================
+   Modal (pause + promote)
+   ============================================================ */
+.modal {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.modal.hidden { display: none; }
+.modal-card {
+  width: 320px;
+  background: var(--bg-modal);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.promote-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 6px;
+}
+.promote-btn {
+  background: var(--bg-surface);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64px;
+}
+.promote-btn:focus { background: var(--bg-surface-hi); }
+.promote-svg { display: inline-flex; width: 48px; height: 48px; }
+.promote-svg svg { width: 100%; height: 100%; }
+
+/* ============================================================
+   Game-over screen
+   ============================================================ */
+.over-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 32px;
+}
+.over-result {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-align: center;
+}
+.over-detail {
+  font-size: 18px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+
+/* ============================================================
+   How-to-play
+   ============================================================ */
+.how-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 24px 24px;
+}
+.how-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  font-size: 15px;
+}
+.how-key {
+  flex-shrink: 0;
+  min-width: 80px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 1px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.how-tip {
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: 0 4px;
+  text-align: center;
+  display: block;
+}
+
+.hidden { display: none !important; }

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=600, height=600, initial-scale=1.0, user-scalable=no">
+  <title>Chess</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ============== MAIN MENU ============== -->
+    <div id="menu" class="screen">
+      <div class="menu-wrap">
+        <div class="brand">
+          <div class="brand-mark">
+            <svg viewBox="0 0 100 100" class="brand-svg" aria-hidden="true">
+              <ellipse cx="50" cy="88" rx="33" ry="5" fill="#fff"/>
+              <path d="M 23 84 L 77 84 L 73 78 L 27 78 Z" fill="#fff"/>
+              <path d="M 29 78 L 71 78 L 65 58 L 35 58 Z" fill="#fff"/>
+              <ellipse cx="50" cy="56" rx="22" ry="4" fill="#fff"/>
+              <path d="M 32 54 Q 34 32 50 28 Q 66 32 68 54 Z" fill="#fff"/>
+              <rect x="34" y="22" width="32" height="8" fill="#fff"/>
+              <rect x="46" y="4" width="8" height="22" fill="#fff"/>
+              <rect x="40" y="10" width="20" height="6" fill="#fff"/>
+            </svg>
+          </div>
+          <h1 class="brand-title">CHESS</h1>
+          <div class="brand-sub">for Display Glasses</div>
+        </div>
+        <div class="menu-list">
+          <button class="menu-btn focusable primary" data-action="play">Play vs Computer</button>
+          <button class="menu-btn focusable" data-action="continue" id="continue-btn" hidden>Continue Game</button>
+          <button class="menu-btn focusable" data-action="how">How to Play</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============== DIFFICULTY ============== -->
+    <div id="difficulty" class="screen hidden">
+      <header class="screen-header">
+        <button class="back-btn focusable" data-action="back" aria-label="Back">&#8592;</button>
+        <h2>Difficulty</h2>
+      </header>
+      <div class="opt-list">
+        <button class="opt-btn focusable" data-action="diff-easy">
+          <div class="opt-title">Easy</div>
+          <div class="opt-sub">Looks 1 move ahead</div>
+        </button>
+        <button class="opt-btn focusable" data-action="diff-medium">
+          <div class="opt-title">Medium</div>
+          <div class="opt-sub">Looks 3 moves ahead</div>
+        </button>
+        <button class="opt-btn focusable" data-action="diff-hard">
+          <div class="opt-title">Hard</div>
+          <div class="opt-sub">Looks 4 moves ahead</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ============== SIDE PICK ============== -->
+    <div id="side" class="screen hidden">
+      <header class="screen-header">
+        <button class="back-btn focusable" data-action="back" aria-label="Back">&#8592;</button>
+        <h2>Play as</h2>
+      </header>
+      <div class="opt-list">
+        <button class="opt-btn focusable" data-action="side-w">
+          <div class="opt-title">White</div>
+          <div class="opt-sub">You move first</div>
+        </button>
+        <button class="opt-btn focusable" data-action="side-b">
+          <div class="opt-title">Red</div>
+          <div class="opt-sub">Computer moves first</div>
+        </button>
+        <button class="opt-btn focusable" data-action="side-r">
+          <div class="opt-title">Random</div>
+          <div class="opt-sub">Coin flip</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ============== GAME ============== -->
+    <div id="game" class="screen hidden">
+      <div class="game-top">
+        <div class="turn-pill" id="turn-pill">
+          <span class="turn-dot" id="turn-dot"></span>
+          <span id="turn-text">White to move</span>
+        </div>
+        <button class="icon-btn focusable" data-action="open-pause" aria-label="Menu">
+          <span class="icon-bars">&#9776;</span>
+        </button>
+      </div>
+
+      <div class="board-wrap">
+        <div id="board" class="board focusable" tabindex="0" aria-label="Chess board"></div>
+      </div>
+
+      <div class="game-bottom">
+        <span id="last-move" class="last-move">&nbsp;</span>
+        <span id="status-text" class="status-text">&nbsp;</span>
+      </div>
+
+      <!-- Pause / in-game menu modal -->
+      <div id="pause" class="modal hidden">
+        <div class="modal-card">
+          <div class="modal-title">Paused</div>
+          <button class="menu-btn focusable primary" data-action="resume">Resume</button>
+          <button class="menu-btn focusable" data-action="undo">Undo Move</button>
+          <button class="menu-btn focusable" data-action="new-game">New Game</button>
+          <button class="menu-btn focusable" data-action="resign">Resign</button>
+          <button class="menu-btn focusable" data-action="to-menu">Main Menu</button>
+        </div>
+      </div>
+
+      <!-- Pawn promotion picker -->
+      <div id="promote" class="modal hidden">
+        <div class="modal-card">
+          <div class="modal-title">Promote to</div>
+          <div class="promote-row">
+            <button class="promote-btn focusable" data-promote="q" aria-label="Queen"><span class="promote-svg" data-piece="q"></span></button>
+            <button class="promote-btn focusable" data-promote="r" aria-label="Rook"><span class="promote-svg" data-piece="r"></span></button>
+            <button class="promote-btn focusable" data-promote="b" aria-label="Bishop"><span class="promote-svg" data-piece="b"></span></button>
+            <button class="promote-btn focusable" data-promote="n" aria-label="Knight"><span class="promote-svg" data-piece="n"></span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============== GAME OVER ============== -->
+    <div id="over" class="screen hidden">
+      <div class="over-wrap">
+        <div class="over-result" id="over-result">Checkmate</div>
+        <div class="over-detail" id="over-detail">White wins</div>
+        <div class="menu-list">
+          <button class="menu-btn focusable primary" data-action="rematch">Play Again</button>
+          <button class="menu-btn focusable" data-action="to-menu">Main Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============== HOW TO PLAY ============== -->
+    <div id="how" class="screen hidden">
+      <header class="screen-header">
+        <button class="back-btn focusable" data-action="back" aria-label="Back">&#8592;</button>
+        <h2>How to Play</h2>
+      </header>
+      <div class="how-content">
+        <div class="how-row"><span class="how-key">&#9650;&#9660;&#9664;&#9654;</span><span>Move the cursor square</span></div>
+        <div class="how-row"><span class="how-key">PINCH</span><span>Select your piece, then pinch on a green dot to move</span></div>
+        <div class="how-row"><span class="how-key">BACK</span><span>Open the menu (resume, undo, new game)</span></div>
+        <div class="how-row how-tip">Red dots show captures. Tap your piece again to deselect.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
