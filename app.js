@@ -3,6 +3,7 @@
 
 import { Chess } from './chess-rules.js';
 import { pieceSvg } from './pieces.js';
+import { sfx } from './sounds.js';
 
 // ==================== CONFIG ====================
 const CONFIG = {
@@ -160,12 +161,13 @@ function handleAction(action, el) {
     case 'side-b': startNewGame('b'); break;
     case 'side-r': startNewGame(Math.random() < 0.5 ? 'w' : 'b'); break;
 
-    case 'open-pause': openPause(); break;
-    case 'resume':     closePause(); break;
-    case 'undo':       closePause(); undoLastFullMove(); break;
-    case 'new-game':   closePause(); state.game = null; navigateTo('difficulty', { addToHistory: false }); break;
-    case 'resign':     closePause(); resign(); break;
-    case 'to-menu':    closePause(); state.history = []; navigateTo('menu', { addToHistory: false }); break;
+    case 'open-pause':   openPause(); break;
+    case 'resume':       closePause(); break;
+    case 'undo':         closePause(); undoLastFullMove(); break;
+    case 'toggle-sound': sfx.setMuted(!sfx.isMuted()); refreshSoundToggle(); break;
+    case 'new-game':     closePause(); state.game = null; navigateTo('difficulty', { addToHistory: false }); break;
+    case 'resign':       closePause(); resign(); break;
+    case 'to-menu':      closePause(); state.history = []; navigateTo('menu', { addToHistory: false }); break;
 
     case 'rematch':    {
       const wasHuman = state.human;
@@ -191,6 +193,7 @@ function startNewGame(humanColor) {
 function resign() {
   if (!state.game) return;
   // Treat as a loss for the human.
+  sfx.play('lose');
   showGameOver({
     result: 'Resigned',
     detail: state.human === 'w' ? 'Black wins' : 'White wins',
@@ -408,9 +411,23 @@ function playMove({ from, to, promotion }) {
   updateStatus();
   saveData();
 
+  playMoveSound(move);
   if (checkGameOver()) return;
   // Hand off to AI.
   setTimeout(maybeAiMove, 50);
+}
+
+// Pick the right sound for a freshly-played move. Checkmate handled by the
+// game-over sound, not here — caller checks isCheckmate() after the move.
+function playMoveSound(move) {
+  if (state.game.isCheckmate()) return; // win/lose sound covers it
+  if (state.game.inCheck())       { sfx.play('check');     return; }
+  if (move.flags.includes('p'))   { sfx.play('promotion'); return; }  // promotion flag
+  if (move.flags.includes('k') ||
+      move.flags.includes('q'))   { sfx.play('castle');    return; }  // king/queen-side castle
+  if (move.captured ||
+      move.flags.includes('e'))   { sfx.play('capture');   return; }  // capture or e.p.
+  sfx.play('move');
 }
 
 // ==================== AI ====================
@@ -461,6 +478,7 @@ function onAiResponse(msg) {
     const move = state.game.move({ from: m.from, to: m.to, promotion: m.promotion });
     if (move) {
       state.lastMove = { from: move.from, to: move.to, san: move.san };
+      playMoveSound(move);
     }
     renderBoard();
     updateStatus();
@@ -474,24 +492,24 @@ function checkGameOver() {
   if (!state.game || !state.game.isGameOver()) return false;
   let result = 'Game Over';
   let detail = '';
+  let sound = 'draw';
   if (state.game.isCheckmate()) {
     result = 'Checkmate';
     // If it's now <other side>'s turn, that side has been mated → opposite wins.
     const loser = state.game.turn();
-    detail = loser === state.human ? 'You lose' : 'You win!';
+    if (loser === state.human) { detail = 'You lose'; sound = 'lose'; }
+    else                       { detail = 'You win!'; sound = 'win';  }
   } else if (state.game.isStalemate()) {
-    result = 'Stalemate';
-    detail = 'Draw';
+    result = 'Stalemate'; detail = 'Draw';
   } else if (state.game.isThreefoldRepetition()) {
-    result = 'Draw';
-    detail = 'Threefold repetition';
+    result = 'Draw'; detail = 'Threefold repetition';
   } else if (state.game.isInsufficientMaterial()) {
-    result = 'Draw';
-    detail = 'Insufficient material';
+    result = 'Draw'; detail = 'Insufficient material';
   } else if (state.game.isDraw()) {
-    result = 'Draw';
-    detail = '50-move rule';
+    result = 'Draw'; detail = '50-move rule';
   }
+  // Play game-end sound shortly after so the move sound has space first.
+  setTimeout(() => sfx.play(sound), 200);
   showGameOver({ result, detail });
   return true;
 }
@@ -499,10 +517,16 @@ function checkGameOver() {
 // ==================== PAUSE / PROMOTION MODALS ====================
 function openPause() {
   if (state.thinking) return; // don't let user pause mid-AI; cleaner
+  refreshSoundToggle();
   pauseEl.classList.remove('hidden');
   setTimeout(() => focusFirst(pauseEl), 0);
 }
 function closePause() { pauseEl.classList.add('hidden'); boardEl.focus(); }
+
+function refreshSoundToggle() {
+  const btn = document.getElementById('sound-toggle');
+  if (btn) btn.textContent = 'Sound: ' + (sfx.isMuted() ? 'Off' : 'On');
+}
 
 function openPromote() {
   promoteEl.classList.remove('hidden');
@@ -645,6 +669,7 @@ function init() {
   collectDom();
   setupEvents();
   loadData();
+  sfx.armOnFirstGesture(); // browsers require a user gesture to start AudioContext
   navigateTo('menu', { addToHistory: false });
 }
 
