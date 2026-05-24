@@ -269,8 +269,10 @@ function renderCaptured() {
 
   const whiteEl = document.getElementById('captured-white');
   const blackEl = document.getElementById('captured-black');
-  if (whiteEl) whiteEl.innerHTML = lostByWhite.map(t => `<span class="captured-piece">${pieceSvg(t, 'w')}</span>`).join('');
-  if (blackEl) blackEl.innerHTML = lostByBlack.map(t => `<span class="captured-piece">${pieceSvg(t, 'b')}</span>`).join('');
+  // Tile color is the OPPOSITE of the piece color, mirroring how pieces sit
+  // on contrasting squares on the board. White on dark tile, black on light.
+  if (whiteEl) whiteEl.innerHTML = lostByWhite.map(t => `<span class="captured-piece tile-dark">${pieceSvg(t, 'w')}</span>`).join('');
+  if (blackEl) blackEl.innerHTML = lostByBlack.map(t => `<span class="captured-piece tile-light">${pieceSvg(t, 'b')}</span>`).join('');
 }
 
 // ==================== STATUS LINE ====================
