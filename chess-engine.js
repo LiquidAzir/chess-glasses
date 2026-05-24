@@ -1,7 +1,8 @@
 // chess-engine.js — Web Worker that picks the AI's move.
-// Negamax with alpha-beta pruning + simple piece-square eval.
+// Negamax with alpha-beta pruning + piece-square eval + quiescence search.
 //
-// Wire-up: postMessage({ fen, depth }) → posts back { move, evalScore, nodes }.
+// Wire-up: postMessage({ fen, depth, timeMs, qs, blunderProb }) → posts back
+//          { move, evalScore, nodes, depthReached }.
 
 import { Chess } from './chess-rules.js';
 
@@ -82,13 +83,11 @@ function squareIndex(sq) {
 
 let nodes = 0;
 
+// Material + piece-square eval, side-to-move perspective. Terminal-position
+// detection is intentionally NOT done here — callers handle it once they've
+// already generated moves (chess.js's isCheckmate/isDraw internally generate
+// moves, which would double our cost in the hot loop).
 function evaluate(game) {
-  // Terminal positions get extreme scores.
-  if (game.isCheckmate()) return -100000;       // side to move is mated
-  if (game.isDraw() || game.isStalemate() || game.isThreefoldRepetition() || game.isInsufficientMaterial()) {
-    return 0;
-  }
-
   let score = 0;
   const board = game.board(); // 8x8 array, board[0] = rank 8
   for (let r = 0; r < 8; r++) {
@@ -102,8 +101,13 @@ function evaluate(game) {
       score += sign * (PIECE_VALUE[cell.type] + psv);
     }
   }
-  // Negamax wants the score from side-to-move's perspective.
   return game.turn() === 'w' ? score : -score;
+}
+
+// Score for a position where the side to move has no legal moves.
+// Either checkmate (very bad for side to move) or stalemate (draw).
+function noMovesScore(game, depthFromRoot) {
+  return game.inCheck() ? -100000 + depthFromRoot : 0;
 }
 
 // Move ordering: captures first (MVV-LVA-ish), then promotions, then the rest.
@@ -125,22 +129,73 @@ const DEFAULT_TIME_CAP_MS = 2500;
 
 let deadline = 0;
 let timedOut = false;
+// Per-call flag: enable quiescence at leaf nodes (set by pickMove from message).
+let useQuiescence = false;
+// Safety cap on quiescence recursion depth so a pathological position can't
+// stall the search.
+const QS_MAX_DEPTH = 8;
 
-function negamax(game, depth, alpha, beta) {
+// Delta pruning margin (centipawns). At a QS node, if even capturing the
+// largest possible material (queen) wouldn't bring the score within this
+// margin of alpha, skip the search — the side can stand pat instead.
+const DELTA_MARGIN = 200;
+
+// Quiescence search — at the main-search leaf, keep extending with CAPTURES only
+// until the position is "quiet". Eliminates the horizon effect (engine thinking
+// a free queen capture is fine because it can't see the recapture beyond depth).
+// Uses the standard "stand-pat" trick: the side to move can always choose NOT
+// to capture, so the static eval gives a lower bound. Delta pruning skips
+// captures that can't realistically raise alpha (huge speedup in lost positions).
+function quiesce(game, alpha, beta, qsDepth) {
   nodes++;
-  if (depth === 0 || game.isGameOver()) {
-    return evaluate(game);
+
+  const standPat = evaluate(game);
+  if (standPat >= beta) return beta;
+  if (alpha < standPat) alpha = standPat;
+  if (qsDepth >= QS_MAX_DEPTH) return alpha;
+
+  if ((nodes & 1023) === 0 && performance.now() > deadline) { timedOut = true; return alpha; }
+
+  // Generate moves once. If there are none, it's mate or stalemate — handle
+  // here instead of calling isCheckmate() (which would regenerate them).
+  const all = game.moves({ verbose: true });
+  if (all.length === 0) return noMovesScore(game, qsDepth);
+
+  const captures = orderMoves(all.filter(m => m.captured || m.promotion));
+  for (const m of captures) {
+    // Delta pruning: skip captures that can't materially raise alpha.
+    if (m.captured) {
+      const gain = PIECE_VALUE[m.captured] + (m.promotion ? PIECE_VALUE[m.promotion] - PIECE_VALUE.p : 0);
+      if (standPat + gain + DELTA_MARGIN < alpha) continue;
+    }
+    game.move(m);
+    const score = -quiesce(game, -beta, -alpha, qsDepth + 1);
+    game.undo();
+    if (timedOut) return alpha;
+    if (score >= beta) return beta;
+    if (score > alpha) alpha = score;
   }
-  const moves = orderMoves(game.moves({ verbose: true }));
+  return alpha;
+}
+
+function negamax(game, depth, alpha, beta, depthFromRoot) {
+  nodes++;
+  if (depth === 0) {
+    return useQuiescence ? quiesce(game, alpha, beta, 0) : evaluate(game);
+  }
+  const rawMoves = game.moves({ verbose: true });
+  if (rawMoves.length === 0) return noMovesScore(game, depthFromRoot);
+  const moves = orderMoves(rawMoves);
   let best = -Infinity;
   for (const m of moves) {
-    // Cheap deadline check every ~2048 nodes — keep overhead negligible.
-    if ((nodes & 2047) === 0 && performance.now() > deadline) {
+    // Cheap deadline check every ~1024 nodes — overshoot stays in the ~100ms
+    // range per recursion level, keeping wall-clock close to the budget.
+    if ((nodes & 1023) === 0 && performance.now() > deadline) {
       timedOut = true;
       return best === -Infinity ? evaluate(game) : best;
     }
     game.move(m);
-    const score = -negamax(game, depth - 1, -beta, -alpha);
+    const score = -negamax(game, depth - 1, -beta, -alpha, depthFromRoot + 1);
     game.undo();
     if (timedOut) return best === -Infinity ? score : best;
     if (score > best) best = score;
@@ -163,7 +218,7 @@ function searchAtDepth(game, depth) {
 
   for (const m of moves) {
     game.move(m);
-    const score = -negamax(game, depth - 1, -beta, -alpha);
+    const score = -negamax(game, depth - 1, -beta, -alpha, 1);
     game.undo();
     if (timedOut && best === null) return { move: null, score: 0, candidates: [], complete: false };
     if (timedOut) break;
@@ -181,14 +236,28 @@ function searchAtDepth(game, depth) {
   return { move: best, score: bestScore, candidates, complete: !timedOut };
 }
 
-function pickMove(fen, maxDepth, timeMs) {
+function pickMove(fen, maxDepth, timeMs, opts) {
+  opts = opts || {};
   const game = new Chess(fen);
   const rootMoves = game.moves({ verbose: true });
   if (rootMoves.length === 0) return { move: null, evalScore: 0, nodes: 0, depthReached: 0 };
 
+  // Blunder probability — for low tiers, sometimes pick a random legal move
+  // instead of searching. This drops the effective rating believably without
+  // making the engine stop responding to captures entirely.
+  const blunderProb = Math.max(0, Math.min(1, opts.blunderProb || 0));
+  if (blunderProb > 0 && Math.random() < blunderProb) {
+    // Pick any non-suicidal random move — avoid hanging the queen for free in
+    // ONE common case: if a queen-trade-via-blunder is offered, don't take it.
+    // Simpler: just pick uniformly at random from legal moves. Beginners do this.
+    const m = rootMoves[Math.floor(Math.random() * rootMoves.length)];
+    return { move: m, evalScore: 0, nodes: 0, depthReached: 0, blunder: true };
+  }
+
   nodes = 0;
   deadline = performance.now() + (timeMs || DEFAULT_TIME_CAP_MS);
   timedOut = false;
+  useQuiescence = !!opts.qs;
 
   // Iterative deepening: keep the best result from the deepest fully-completed
   // iteration. Lower-depth results are useful even at maxDepth=1, since that's
@@ -225,9 +294,9 @@ function pickMove(fen, maxDepth, timeMs) {
 }
 
 self.onmessage = (e) => {
-  const { fen, depth, timeMs, id } = e.data;
+  const { fen, depth, timeMs, qs, blunderProb, id } = e.data;
   try {
-    const result = pickMove(fen, depth, timeMs);
+    const result = pickMove(fen, depth, timeMs, { qs, blunderProb });
     self.postMessage({ id, ...result });
   } catch (err) {
     self.postMessage({ id, error: err.message });

@@ -7,19 +7,47 @@ import { pieceSvg } from './pieces.js';
 // ==================== CONFIG ====================
 const CONFIG = {
   storageKey: 'mrbd_chess_v1',
-  // Per-difficulty: search depth ceiling + soft time budget. Iterative deepening
-  // in the worker uses the full budget when the deeper search is reachable, and
-  // falls back to the deepest completed iteration otherwise. Hard gets enough
-  // time to actually reach depth 4 in the opening (~4–5s); Easy is near-instant.
+  // Per-difficulty engine settings + estimated ELO rating shown in the UI.
+  //   depth        — main-search depth (iterative deepening up to here)
+  //   timeMs       — soft time budget; deeper search aborts cleanly on overshoot
+  //   qs           — quiescence search at leaves (extends captures-only; huge
+  //                  tactical strength gain — enabled for the top tiers)
+  //   blunderProb  — chance of picking a random legal move instead of the best.
+  //                  Used to model lower-rated play believably.
+  //   elo          — rough estimated rating shown to the user. Approximate;
+  //                  real strength varies with position type and opponent.
   difficulty: {
-    easy:   { depth: 1, timeMs: 500  },
-    medium: { depth: 3, timeMs: 1500 },
-    hard:   { depth: 4, timeMs: 5000 },
+    beginner:     { depth: 1, timeMs: 300,   qs: false, blunderProb: 0.35, elo: 600  },
+    casual:       { depth: 2, timeMs: 800,   qs: false, blunderProb: 0.10, elo: 1000 },
+    // Intermediate plays at the old "Medium" strength: 3-ply search, no QS.
+    // Reliably completes in well under 1s on any position.
+    intermediate: { depth: 3, timeMs: 1500,  qs: false, blunderProb: 0,    elo: 1200 },
+    // Advanced adds quiescence to depth 3 — same nominal depth but no
+    // horizon-effect blunders on capture sequences. ~250 ELO stronger.
+    advanced:     { depth: 3, timeMs: 8000,  qs: true,  blunderProb: 0,    elo: 1500 },
+    // Expert pushes to depth 4 with QS. Opening/middlegame positions may
+    // fall back to depth 3 when the 30s budget runs out, but endgames and
+    // quiet positions get the full depth-4 + QS search.
+    expert:       { depth: 4, timeMs: 30000, qs: true,  blunderProb: 0,    elo: 1700 },
+  },
+  // Map deprecated tier names from older saves → current tiers so anyone who
+  // had a game saved on the old 3-tier system can keep playing it.
+  difficultyAliases: {
+    easy:   'beginner',
+    medium: 'intermediate',
+    hard:   'advanced',
   },
   // Small artificial floor on AI move time so the UI always reads
   // "thinking..." rather than instant-move at depth 1.
   minThinkMs: 350,
 };
+
+// Resolve a difficulty key (current or aliased) to a valid current key.
+function resolveDifficulty(key) {
+  if (CONFIG.difficulty[key]) return key;
+  if (CONFIG.difficultyAliases[key]) return CONFIG.difficultyAliases[key];
+  return 'intermediate'; // sane default
+}
 
 // ==================== STATE ====================
 const state = {
@@ -27,7 +55,7 @@ const state = {
   history: [],
   game: null,           // chess.js instance (active game) or null
   human: 'w',           // 'w' = human plays white, 'b' = human plays black
-  difficulty: 'medium',
+  difficulty: 'intermediate',
   cursor: { f: 4, r: 6 }, // file 0..7, rank 0..7 (rank 0 = top of HTML grid = rank 8)
   selected: null,        // { f, r, square: 'e2', moves: [] }
   lastMove: null,        // { from, to }
@@ -122,9 +150,11 @@ function handleAction(action, el) {
     case 'continue':   if (state.game) navigateTo('game'); break;
     case 'how':        navigateTo('how'); break;
 
-    case 'diff-easy':   state.difficulty = 'easy';   navigateTo('side'); break;
-    case 'diff-medium': state.difficulty = 'medium'; navigateTo('side'); break;
-    case 'diff-hard':   state.difficulty = 'hard';   navigateTo('side'); break;
+    case 'diff-beginner':     state.difficulty = 'beginner';     navigateTo('side'); break;
+    case 'diff-casual':       state.difficulty = 'casual';       navigateTo('side'); break;
+    case 'diff-intermediate': state.difficulty = 'intermediate'; navigateTo('side'); break;
+    case 'diff-advanced':     state.difficulty = 'advanced';     navigateTo('side'); break;
+    case 'diff-expert':       state.difficulty = 'expert';       navigateTo('side'); break;
 
     case 'side-w': startNewGame('w'); break;
     case 'side-b': startNewGame('b'); break;
@@ -400,11 +430,17 @@ function maybeAiMove() {
   updateStatus();
   const id = ++state.reqId;
   const fen = state.game.fen();
-  // Defensive fallback in case state.difficulty was set outside of the menu flow.
-  const cfg = CONFIG.difficulty[state.difficulty] || CONFIG.difficulty.medium;
+  // Defensive resolve in case state.difficulty was set outside of the menu flow.
+  const cfg = CONFIG.difficulty[resolveDifficulty(state.difficulty)];
   const startedAt = Date.now();
 
-  ensureWorker().postMessage({ id, fen, depth: cfg.depth, timeMs: cfg.timeMs });
+  ensureWorker().postMessage({
+    id, fen,
+    depth: cfg.depth,
+    timeMs: cfg.timeMs,
+    qs: cfg.qs,
+    blunderProb: cfg.blunderProb,
+  });
   // Stash request meta so we can rate-limit move display.
   state._pendingAi = { id, startedAt };
 }
@@ -530,9 +566,8 @@ function loadData() {
     if (p.pgn) state.game.loadPgn(p.pgn);
     else if (p.fen) state.game.load(p.fen);
     state.human = (p.human === 'w' || p.human === 'b') ? p.human : 'w';
-    // Validate difficulty against the known config so a stale/corrupted save
-    // (e.g. from a future version that renamed keys) can't crash the engine.
-    state.difficulty = CONFIG.difficulty[p.difficulty] ? p.difficulty : 'medium';
+    // Migrate old 3-tier saves AND validate against current config.
+    state.difficulty = resolveDifficulty(p.difficulty);
     state.lastMove = p.lastMove || null;
     state.cursor = state.human === 'w' ? { f: 4, r: 6 } : { f: 4, r: 1 };
   } catch (e) {

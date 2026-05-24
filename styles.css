@@ -179,6 +179,18 @@ html, body {
   padding: 8px 24px 24px;
   justify-content: center;
 }
+/* Tighter packing for the 5-tier difficulty screen */
+.opt-list-compact {
+  gap: 8px;
+  padding: 4px 18px 16px;
+  justify-content: flex-start;
+}
+.opt-list-compact .opt-btn {
+  padding: 10px 16px;
+}
+.opt-list-compact .opt-title { font-size: 18px; }
+.opt-list-compact .opt-sub   { font-size: 12px; margin-top: 2px; }
+
 .opt-btn {
   background: var(--bg-surface);
   border: 2px solid transparent;
@@ -191,6 +203,21 @@ html, body {
 .opt-btn:focus { background: var(--bg-surface-hi); }
 .opt-title { font-size: 22px; font-weight: 700; }
 .opt-sub   { font-size: 14px; color: var(--text-dim); margin-top: 4px; }
+
+/* Title + ELO chip on the same row */
+.opt-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.opt-elo {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.4px;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ============================================================
    Game screen

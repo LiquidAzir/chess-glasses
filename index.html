@@ -57,18 +57,26 @@
         <button class="back-btn focusable" data-action="back" aria-label="Back">&#8592;</button>
         <h2>Difficulty</h2>
       </header>
-      <div class="opt-list">
-        <button class="opt-btn focusable" data-action="diff-easy">
-          <div class="opt-title">Easy</div>
-          <div class="opt-sub">Looks 1 move ahead</div>
+      <div class="opt-list opt-list-compact">
+        <button class="opt-btn focusable" data-action="diff-beginner">
+          <div class="opt-row"><div class="opt-title">Beginner</div><div class="opt-elo">~600</div></div>
+          <div class="opt-sub">Knows the moves, often misses tactics</div>
         </button>
-        <button class="opt-btn focusable" data-action="diff-medium">
-          <div class="opt-title">Medium</div>
-          <div class="opt-sub">Looks 3 moves ahead</div>
+        <button class="opt-btn focusable" data-action="diff-casual">
+          <div class="opt-row"><div class="opt-title">Casual</div><div class="opt-elo">~1000</div></div>
+          <div class="opt-sub">Sees recaptures, rarely hangs pieces</div>
         </button>
-        <button class="opt-btn focusable" data-action="diff-hard">
-          <div class="opt-title">Hard</div>
-          <div class="opt-sub">Looks 4 moves ahead</div>
+        <button class="opt-btn focusable" data-action="diff-intermediate">
+          <div class="opt-row"><div class="opt-title">Intermediate</div><div class="opt-elo">~1200</div></div>
+          <div class="opt-sub">Looks 3 moves ahead — snappy</div>
+        </button>
+        <button class="opt-btn focusable" data-action="diff-advanced">
+          <div class="opt-row"><div class="opt-title">Advanced</div><div class="opt-elo">~1500</div></div>
+          <div class="opt-sub">Sees capture sequences; thinks up to 10 seconds</div>
+        </button>
+        <button class="opt-btn focusable" data-action="diff-expert">
+          <div class="opt-row"><div class="opt-title">Expert</div><div class="opt-elo">~1700</div></div>
+          <div class="opt-sub">Strong play — may take 20+ seconds per move</div>
         </button>
       </div>
     </div>
