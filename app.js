@@ -243,6 +243,34 @@ function renderBoard() {
     }
   }
   boardEl.innerHTML = html.join('');
+
+  renderCaptured();
+}
+
+// ==================== CAPTURED PIECES ====================
+// Reconstructs from the move history each render so undo / load / new-game
+// all stay in sync without separate bookkeeping. Cheap: history is short.
+const PIECE_VALUE = { q: 5, r: 4, b: 3, n: 2, p: 1 };
+
+function renderCaptured() {
+  if (!state.game) return;
+  const lostByWhite = []; // white pieces that have been captured
+  const lostByBlack = []; // black pieces that have been captured
+  const hist = state.game.history({ verbose: true });
+  for (const m of hist) {
+    if (!m.captured) continue;
+    // The captured piece is the color OPPOSITE the moving side.
+    (m.color === 'w' ? lostByBlack : lostByWhite).push(m.captured);
+  }
+  // Show most-valuable losses at the top of each column.
+  const byValueDesc = (a, b) => PIECE_VALUE[b] - PIECE_VALUE[a];
+  lostByWhite.sort(byValueDesc);
+  lostByBlack.sort(byValueDesc);
+
+  const whiteEl = document.getElementById('captured-white');
+  const blackEl = document.getElementById('captured-black');
+  if (whiteEl) whiteEl.innerHTML = lostByWhite.map(t => `<span class="captured-piece">${pieceSvg(t, 'w')}</span>`).join('');
+  if (blackEl) blackEl.innerHTML = lostByBlack.map(t => `<span class="captured-piece">${pieceSvg(t, 'b')}</span>`).join('');
 }
 
 // ==================== STATUS LINE ====================

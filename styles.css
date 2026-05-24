@@ -254,6 +254,49 @@ html, body {
   justify-content: center;
 }
 
+/* Captured-piece strips flanking the board.
+   Width is exactly the existing side margin (board is 528 inside a 600 viewport
+   → 36px per side) so the board doesn't shrink.
+   The strip needs a subtle surface bg: on the additive glasses display the
+   page background is transparent (black = no emission), so without a strip
+   bg the BLACK captured pieces would also be invisible. The dark-grey surface
+   gives just enough contrast for both black and white piece icons. */
+.captured-col {
+  width: 36px;
+  height: var(--board-px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0;
+  gap: 1px;
+  flex-shrink: 0;
+  overflow: hidden;
+  pointer-events: none;             /* never steal focus / clicks */
+  background: var(--bg-surface);
+  border-radius: 4px;
+}
+.captured-piece {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  opacity: 0.92;
+}
+.captured-piece svg.piece {
+  /* Override the in-board piece sizing (84%) for these inline icons */
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35));
+}
+/* Tiny white halo behind black captured icons so they don't fade into the
+   dark surface bg even at icon size. Mirrors the turn-pill's black-dot trick. */
+.captured-piece svg.piece-black {
+  filter: drop-shadow(0 0 0.5px rgba(255,255,255,0.55))
+          drop-shadow(0 0 0.5px rgba(255,255,255,0.45));
+}
+
 /* The board itself */
 .board {
   width: var(--board-px);

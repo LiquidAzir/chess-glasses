@@ -108,7 +108,13 @@
       </div>
 
       <div class="board-wrap">
+        <!-- Captured pieces — color-matched to the strip side.
+             LEFT = white pieces taken (white's losses).
+             RIGHT = black pieces taken (black's losses).
+             Counts at a glance tell you who's ahead on material. -->
+        <div id="captured-white" class="captured-col" aria-label="White pieces captured"></div>
         <div id="board" class="board focusable" tabindex="0" aria-label="Chess board"></div>
+        <div id="captured-black" class="captured-col" aria-label="Black pieces captured"></div>
       </div>
 
       <div class="game-bottom">
