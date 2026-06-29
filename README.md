@@ -1,6 +1,6 @@
 # Chess for Meta Ray-Ban Display
 
-A simple, full-color chess game for Meta Ray-Ban Display smart glasses. D-pad navigation via the Neural Band; play against a computer opponent at three difficulty levels.
+A full-color chess game for Meta Ray-Ban Display smart glasses, powered by Stockfish. D-pad navigation via the Neural Band; play against a tunable AI opponent across five difficulty tiers from ~600 to ~2200 ELO.
 
 ## Features
 
@@ -8,9 +8,11 @@ A simple, full-color chess game for Meta Ray-Ban Display smart glasses. D-pad na
 - Full color: cream/brown board, classic white vs black pieces — the colored squares emit light around each piece so the black silhouettes read cleanly even on the additive display
 - D-pad cursor with Enter to select, legal-move dots, capture rings
 - Castling, en passant, pawn promotion, checkmate / stalemate / threefold / 50-move draw
-- AI opponent (chess.js for rules, custom negamax + alpha-beta in a Web Worker, iterative deepening)
+- **Stockfish 10 (WASM)** chess engine — five difficulty tiers using UCI Skill Level + movetime + random-blunder probability for believable beginner play
+- Captured-piece tracker on each side of the board
+- Synthesized move / capture / check / mate sound effects with mute toggle
 - Auto-save: close mid-game and Continue Game from the menu
-- Pause: undo, new game, resign, return to main menu
+- Pause menu: undo, new game, resign, sound toggle, return to main menu
 
 ## Run locally
 
@@ -27,4 +29,4 @@ Deploys as a Render Static Site (or any static-file host with HTTPS). Add the de
 
 ## License
 
-This project is released under the [MIT License](LICENSE). Bundled third-party software (chess.js, BSD 2-Clause) is listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+This project is licensed under [GPL-3.0](LICENSE) because it bundles Stockfish. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for the full list of bundled third-party software (Stockfish, chess.js).

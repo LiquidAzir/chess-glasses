@@ -1,6 +1,28 @@
 # Third-Party Licenses
 
-This project bundles the following third-party software. Each retains its own license.
+This project is licensed under [GPL-3.0](./LICENSE). It bundles the following third-party software, each retaining its own license.
+
+---
+
+## Stockfish (chess engine)
+
+Source: https://github.com/nmrugg/stockfish.js
+Vendored as: `stockfish/stockfish.js` and `stockfish/stockfish.wasm`
+License: **GPL-3.0** (full text in `LICENSE` and in `stockfish/Copying.txt`)
+
+Stockfish is the chess engine that powers this app's AI opponent. It is the reason this project as a whole is distributed under GPL-3.0.
+
+```
+Stockfish, a UCI chess playing engine derived from Glaurung 2.1
+Copyright (C) 2004-2024 The Stockfish developers (see AUTHORS file)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+```
+
+The WebAssembly build is by Nathan Rugg, with contributions sponsored by Chess.com.
 
 ---
 
@@ -8,7 +30,7 @@ This project bundles the following third-party software. Each retains its own li
 
 Source: https://github.com/jhlywa/chess.js
 Vendored as: `chess-rules.js`
-License: BSD 2-Clause
+License: BSD 2-Clause (GPL-compatible)
 
 ```
 Copyright (c) 2023, Jeff Hlywa (jhlywa@gmail.com)

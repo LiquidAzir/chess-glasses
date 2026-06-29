@@ -4,6 +4,7 @@
 import { Chess } from './chess-rules.js';
 import { pieceSvg } from './pieces.js';
 import { sfx } from './sounds.js';
+import { engine } from './engine.js';
 
 // ==================== CONFIG ====================
 const CONFIG = {
@@ -17,19 +18,21 @@ const CONFIG = {
   //                  Used to model lower-rated play believably.
   //   elo          — rough estimated rating shown to the user. Approximate;
   //                  real strength varies with position type and opponent.
+  // Each tier maps to a Stockfish UCI configuration:
+  //   skill        — "Skill Level" UCI option, 0 (weakest) … 20 (full)
+  //   timeMs       — movetime budget per move; even 50ms produces strong play
+  //                  at higher skills, but more time = stronger and more
+  //                  realistic / human-like
+  //   blunderProb  — chance of playing a uniform-random legal move instead
+  //                  of asking Stockfish. Pulls the low tiers below SF's
+  //                  natural floor (~1100 at Skill 0) so Beginner actually
+  //                  feels like a beginner.
   difficulty: {
-    beginner:     { depth: 1, timeMs: 300,   qs: false, blunderProb: 0.35, elo: 600  },
-    casual:       { depth: 2, timeMs: 800,   qs: false, blunderProb: 0.10, elo: 1000 },
-    // Intermediate plays at the old "Medium" strength: 3-ply search, no QS.
-    // Reliably completes in well under 1s on any position.
-    intermediate: { depth: 3, timeMs: 1500,  qs: false, blunderProb: 0,    elo: 1200 },
-    // Advanced adds quiescence to depth 3 — same nominal depth but no
-    // horizon-effect blunders on capture sequences. ~250 ELO stronger.
-    advanced:     { depth: 3, timeMs: 8000,  qs: true,  blunderProb: 0,    elo: 1500 },
-    // Expert pushes to depth 4 with QS. Opening/middlegame positions may
-    // fall back to depth 3 when the 30s budget runs out, but endgames and
-    // quiet positions get the full depth-4 + QS search.
-    expert:       { depth: 4, timeMs: 30000, qs: true,  blunderProb: 0,    elo: 1700 },
+    beginner:     { skill: 0,  timeMs: 50,   blunderProb: 0.45, elo: 600  },
+    casual:       { skill: 2,  timeMs: 100,  blunderProb: 0.12, elo: 1000 },
+    intermediate: { skill: 6,  timeMs: 300,  blunderProb: 0,    elo: 1400 },
+    advanced:     { skill: 12, timeMs: 1000, blunderProb: 0,    elo: 1800 },
+    expert:       { skill: 20, timeMs: 3500, blunderProb: 0,    elo: 2200 },
   },
   // Map deprecated tier names from older saves → current tiers so anyone who
   // had a game saved on the old 3-tier system can keep playing it.
@@ -62,7 +65,6 @@ const state = {
   lastMove: null,        // { from, to }
   thinking: false,
   pendingPromotion: null,// { from, to } awaiting piece pick
-  worker: null,
   reqId: 0,
 };
 
@@ -186,6 +188,9 @@ function startNewGame(humanColor) {
   state.selected = null;
   state.cursor = humanColor === 'w' ? { f: 4, r: 6 } : { f: 4, r: 1 };
   state.history = [];
+  // Tell Stockfish a fresh game is starting so its internal tables don't
+  // mix data from the previous position.
+  engine.newGame().catch(() => {});
   saveData();
   navigateTo('game', { addToHistory: false });
 }
@@ -431,13 +436,9 @@ function playMoveSound(move) {
 }
 
 // ==================== AI ====================
-function ensureWorker() {
-  if (state.worker) return state.worker;
-  state.worker = new Worker('chess-engine.js', { type: 'module' });
-  state.worker.onmessage = (e) => onAiResponse(e.data);
-  return state.worker;
-}
-
+// Stockfish lives behind the `engine` module — see engine.js. We tag every
+// request with an id so a late-arriving response from a previous game (e.g.
+// after New Game) doesn't clobber the current board.
 function maybeAiMove() {
   if (!state.game) return;
   if (state.game.isGameOver()) { checkGameOver(); return; }
@@ -446,45 +447,47 @@ function maybeAiMove() {
   state.thinking = true;
   updateStatus();
   const id = ++state.reqId;
-  const fen = state.game.fen();
-  // Defensive resolve in case state.difficulty was set outside of the menu flow.
+  state._pendingAi = { id, startedAt: Date.now() };
+
   const cfg = CONFIG.difficulty[resolveDifficulty(state.difficulty)];
-  const startedAt = Date.now();
+  const fen = state.game.fen();
 
-  ensureWorker().postMessage({
-    id, fen,
-    depth: cfg.depth,
+  engine.bestMove({
+    fen,
+    skill: cfg.skill,
     timeMs: cfg.timeMs,
-    qs: cfg.qs,
     blunderProb: cfg.blunderProb,
-  });
-  // Stash request meta so we can rate-limit move display.
-  state._pendingAi = { id, startedAt };
-}
+  }).then((m) => {
+    // Stale response from a prior game / cancelled request — drop it.
+    if (!state._pendingAi || state._pendingAi.id !== id) return;
 
-function onAiResponse(msg) {
-  if (!state._pendingAi || msg.id !== state._pendingAi.id) return;
-  const elapsed = Date.now() - state._pendingAi.startedAt;
-  const wait = Math.max(0, CONFIG.minThinkMs - elapsed);
-  setTimeout(() => {
+    const elapsed = Date.now() - state._pendingAi.startedAt;
+    const wait = Math.max(0, CONFIG.minThinkMs - elapsed);
+    setTimeout(() => {
+      if (!state._pendingAi || state._pendingAi.id !== id) return;
+      state._pendingAi = null;
+      state.thinking = false;
+      if (!m) {
+        updateStatus();
+        checkGameOver();
+        return;
+      }
+      const move = state.game.move({ from: m.from, to: m.to, promotion: m.promotion });
+      if (move) {
+        state.lastMove = { from: move.from, to: move.to, san: move.san };
+        playMoveSound(move);
+      }
+      renderBoard();
+      updateStatus();
+      saveData();
+      checkGameOver();
+    }, wait);
+  }).catch((err) => {
+    console.error('[engine] bestMove failed:', err);
     state._pendingAi = null;
     state.thinking = false;
-    if (msg.error || !msg.move) {
-      updateStatus();
-      checkGameOver();
-      return;
-    }
-    const m = msg.move;
-    const move = state.game.move({ from: m.from, to: m.to, promotion: m.promotion });
-    if (move) {
-      state.lastMove = { from: move.from, to: move.to, san: move.san };
-      playMoveSound(move);
-    }
-    renderBoard();
     updateStatus();
-    saveData();
-    checkGameOver();
-  }, wait);
+  });
 }
 
 // ==================== GAME OVER CHECK ====================
