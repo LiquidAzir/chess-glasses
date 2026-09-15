@@ -2,7 +2,7 @@
 // ES module: loaded with <script type="module"> so we can import chess.js.
 
 import { Chess } from './chess-rules.js';
-import { pieceSvg } from './pieces.js';
+import { pieceSvg, paintBoard, artReady, repaintArt } from './art.js';
 import { sfx } from './sounds.js';
 import { engine } from './engine.js';
 
@@ -91,12 +91,19 @@ function collectDom() {
 
 // ==================== NAVIGATION ====================
 function navigateTo(id, { addToHistory = true } = {}) {
+  if (id !== 'game') invalidateAi();
+  pauseEl.classList.add('hidden');
+  promoteEl.classList.add('hidden');
+  state.pendingPromotion = null;
+  document.getElementById('confirm-resign').classList.add('hidden');
+  setBoardInert(false);
   if (addToHistory && state.currentScreen) state.history.push(state.currentScreen);
   Object.values(screens).forEach(s => s.classList.add('hidden'));
   screens[id].classList.remove('hidden');
   state.currentScreen = id;
   onEnter(id);
   focusFirst(screens[id]);
+  armBackNavigation();
 }
 function navigateBack() {
   if (state.history.length === 0) return;
@@ -119,19 +126,21 @@ function onEnter(id) {
 
 // ==================== FOCUS ====================
 function focusFirst(container) {
-  const el = container.querySelector('.focusable:not([hidden]):not([disabled])');
+  const choices = Array.from(container.querySelectorAll('.focusable:not([hidden]):not([disabled])')).filter(el => el.getClientRects().length);
+  const el = choices.find(el => el.dataset.action !== 'back') || choices[0];
   if (el) el.focus();
 }
 
 function moveFocusInList(direction) {
   // Used inside menus / option lists. Game screen handles its own keys.
   const container =
+    !document.getElementById('confirm-resign').classList.contains('hidden') ? document.getElementById('confirm-resign') :
     state.currentScreen === 'game' && !pauseEl.classList.contains('hidden') ? pauseEl :
     state.currentScreen === 'game' && !promoteEl.classList.contains('hidden') ? promoteEl :
     screens[state.currentScreen];
   const list = Array.from(
     container.querySelectorAll('.focusable:not([hidden]):not([disabled])')
-  );
+  ).filter(el => el.getClientRects().length);
   if (list.length === 0) return;
   const idx = list.indexOf(document.activeElement);
   let next;
@@ -150,7 +159,7 @@ function handleAction(action, el) {
     case 'back':       navigateBack(); break;
 
     case 'play':       navigateTo('difficulty'); break;
-    case 'continue':   if (state.game) navigateTo('game'); break;
+    case 'continue':   if (state.game) { state.history = []; navigateTo('game', { addToHistory: false }); } break;
     case 'how':        navigateTo('how'); break;
 
     case 'diff-beginner':     state.difficulty = 'beginner';     navigateTo('side'); break;
@@ -165,11 +174,13 @@ function handleAction(action, el) {
 
     case 'open-pause':   openPause(); break;
     case 'resume':       closePause(); break;
-    case 'undo':         closePause(); undoLastFullMove(); break;
+    case 'undo':         undoLastFullMove(); closePause(); break;
     case 'toggle-sound': sfx.setMuted(!sfx.isMuted()); refreshSoundToggle(); break;
-    case 'new-game':     closePause(); state.game = null; navigateTo('difficulty', { addToHistory: false }); break;
-    case 'resign':       closePause(); resign(); break;
-    case 'to-menu':      closePause(); state.history = []; navigateTo('menu', { addToHistory: false }); break;
+    case 'new-game':     navigateTo('difficulty'); break;
+    case 'resign':       { const dialog=document.getElementById('confirm-resign'); dialog.classList.remove('hidden'); focusFirst(dialog); break; }
+    case 'cancel-resign': document.getElementById('confirm-resign').classList.add('hidden'); focusFirst(pauseEl); break;
+    case 'confirm-resign': resign(); break;
+    case 'to-menu':      state.history = []; navigateTo('menu', { addToHistory: false }); break;
 
     case 'rematch':    {
       const wasHuman = state.human;
@@ -182,6 +193,7 @@ function handleAction(action, el) {
 
 // ==================== GAME CONTROL ====================
 function startNewGame(humanColor) {
+  invalidateAi();
   state.game = new Chess();
   state.human = humanColor;
   state.lastMove = null;
@@ -190,7 +202,7 @@ function startNewGame(humanColor) {
   state.history = [];
   // Tell Stockfish a fresh game is starting so its internal tables don't
   // mix data from the previous position.
-  engine.newGame().catch(() => {});
+  // Cancelling the old worker gives this game an isolated engine lifecycle.
   saveData();
   navigateTo('game', { addToHistory: false });
 }
@@ -206,6 +218,7 @@ function resign() {
 }
 
 function showGameOver({ result, detail }) {
+  invalidateAi();
   overResultEl.textContent = result;
   overDetailEl.textContent = detail;
   state.history = [];
@@ -273,14 +286,16 @@ function renderBoard() {
       if (checkSq === sq) classes.push('check');
 
       let inner = '';
-      if (cell) inner += pieceSvg(cell.type, cell.color);
       if (targets.has(sq)) {
         inner += captureTargets.has(sq) ? '<span class="dot capture"></span>' : '<span class="dot"></span>';
       }
-      html.push(`<div class="${classes.join(' ')}" data-sq="${sq}" data-f="${f}" data-r="${r}">${inner}</div>`);
+      const label = cell ? `${cell.color === 'w' ? 'White' : 'Black'} ${PIECE_NAMES[cell.type]}, ${sq}` : `${sq}, empty`;
+      html.push(`<div id="square-${sq}" role="gridcell" aria-label="${label}${targets.has(sq) ? ', legal move' : ''}${checkSq === sq ? ', in check' : ''}" aria-selected="${state.selected?.square === sq}" class="${classes.join(' ')}" data-sq="${sq}" data-f="${f}" data-r="${r}">${inner}</div>`);
     }
   }
-  boardEl.innerHTML = html.join('');
+  document.getElementById('board-squares').innerHTML = html.join('');
+  boardEl.setAttribute('aria-activedescendant', 'square-' + squareName(state.cursor.f, state.cursor.r));
+  paintBoard(document.getElementById('board-art'), state.game, isFlipped());
 
   renderCaptured();
 }
@@ -289,6 +304,7 @@ function renderBoard() {
 // Reconstructs from the move history each render so undo / load / new-game
 // all stay in sync without separate bookkeeping. Cheap: history is short.
 const PIECE_VALUE = { q: 5, r: 4, b: 3, n: 2, p: 1 };
+const PIECE_NAMES = { k: 'king', q: 'queen', r: 'rook', b: 'bishop', n: 'knight', p: 'pawn' };
 
 function renderCaptured() {
   if (!state.game) return;
@@ -329,27 +345,34 @@ function updateStatus() {
   }
 
   lastMoveEl.textContent = state.lastMove
-    ? `${state.lastMove.san}`
-    : ' ';
+    ? `Last · ${state.lastMove.san}`
+    : (state.human === 'w' ? 'You play ivory' : 'You play blue steel');
+  document.getElementById('game-level').textContent = state.difficulty.toUpperCase();
 
   statusEl.classList.remove('alert', 'win');
   if (state.game.inCheck() && !state.game.isCheckmate()) {
-    statusEl.textContent = 'Check!';
+    statusEl.textContent = turn === state.human ? 'Check — protect your king' : 'Computer is in check';
     statusEl.classList.add('alert');
   } else {
-    statusEl.textContent = ' ';
+    const square = squareName(state.cursor.f, state.cursor.r), piece = state.game.get(square);
+    statusEl.textContent = state.selected ? `${state.selected.square} selected · choose a marker` : piece ? `${square} · ${PIECE_NAMES[piece.type]}` : `${square} · empty`;
   }
 }
 
 // ==================== INPUT: cursor / selection ====================
 function moveCursor(df, dr) {
+  const menu = document.querySelector('[data-action="open-pause"]');
+  if (document.activeElement === menu) { if (dr >= 0 || df) boardEl.focus(); return; }
+  const displayRow = isFlipped() ? 7-state.cursor.r : state.cursor.r;
+  if (displayRow === 0 && dr === -1) { menu.focus(); return; }
   // Cursor moves in display orientation, but we store world coords.
   let { f, r } = state.cursor;
   if (isFlipped()) { df = -df; dr = -dr; }
-  f = (f + df + 8) % 8;
-  r = (r + dr + 8) % 8;
+  f = Math.max(0, Math.min(7, f + df));
+  r = Math.max(0, Math.min(7, r + dr));
   state.cursor = { f, r };
   renderBoard();
+  updateStatus();
 }
 
 function activateCursor() {
@@ -363,6 +386,7 @@ function activateCursor() {
     if (state.selected.square === sq) {
       state.selected = null;
       renderBoard();
+      updateStatus();
       return;
     }
     // Try to play a move from selected → cursor.
@@ -374,9 +398,7 @@ function activateCursor() {
       if (piece && piece.color === state.human) {
         selectAt(sq);
       } else {
-        // Click on empty / opponent without legal target → just deselect.
-        state.selected = null;
-        renderBoard();
+        statusEl.textContent = 'Choose a marked square, or Back to cancel';
       }
       return;
     }
@@ -402,6 +424,7 @@ function selectAt(sq) {
   const { f, r } = parseSquare(sq);
   state.selected = { square: sq, f, r, moves };
   renderBoard();
+  updateStatus();
 }
 
 function playMove({ from, to, promotion }) {
@@ -440,7 +463,7 @@ function playMoveSound(move) {
 // request with an id so a late-arriving response from a previous game (e.g.
 // after New Game) doesn't clobber the current board.
 function maybeAiMove() {
-  if (!state.game) return;
+  if (!state.game || state.currentScreen !== 'game' || state.thinking || !pauseEl.classList.contains('hidden') || !promoteEl.classList.contains('hidden')) return;
   if (state.game.isGameOver()) { checkGameOver(); return; }
   if (state.game.turn() === state.human) return;
 
@@ -451,6 +474,7 @@ function maybeAiMove() {
 
   const cfg = CONFIG.difficulty[resolveDifficulty(state.difficulty)];
   const fen = state.game.fen();
+  const game = state.game;
 
   engine.bestMove({
     fen,
@@ -464,7 +488,7 @@ function maybeAiMove() {
     const elapsed = Date.now() - state._pendingAi.startedAt;
     const wait = Math.max(0, CONFIG.minThinkMs - elapsed);
     setTimeout(() => {
-      if (!state._pendingAi || state._pendingAi.id !== id) return;
+      if (!state._pendingAi || state._pendingAi.id !== id || state.game !== game || game.fen() !== fen) return;
       state._pendingAi = null;
       state.thinking = false;
       if (!m) {
@@ -483,11 +507,25 @@ function maybeAiMove() {
       checkGameOver();
     }, wait);
   }).catch((err) => {
-    console.error('[engine] bestMove failed:', err);
+    if (!state._pendingAi || state._pendingAi.id !== id || state.game !== game) return;
     state._pendingAi = null;
     state.thinking = false;
+    // A Worker/WASM failure must not strand the player on the computer's turn.
+    const fallback = game.moves({ verbose: true })[0];
+    if (fallback) {
+      const move = game.move(fallback);
+      state.lastMove = { from: move.from, to: move.to, san: move.san };
+      renderBoard(); saveData(); checkGameOver();
+    }
     updateStatus();
   });
+}
+
+function invalidateAi() {
+  state.reqId++;
+  state._pendingAi = null;
+  state.thinking = false;
+  engine.cancel();
 }
 
 // ==================== GAME OVER CHECK ====================
@@ -519,12 +557,23 @@ function checkGameOver() {
 
 // ==================== PAUSE / PROMOTION MODALS ====================
 function openPause() {
-  if (state.thinking) return; // don't let user pause mid-AI; cleaner
+  if (!state.game || !promoteEl.classList.contains('hidden')) return;
+  invalidateAi();
   refreshSoundToggle();
+  const undo = pauseEl.querySelector('[data-action="undo"]');
+  undo.disabled = !state.game.history({ verbose: true }).some(move => move.color === state.human);
   pauseEl.classList.remove('hidden');
+  setBoardInert(true);
   setTimeout(() => focusFirst(pauseEl), 0);
 }
-function closePause() { pauseEl.classList.add('hidden'); boardEl.focus(); }
+function closePause() { pauseEl.classList.add('hidden'); setBoardInert(false); boardEl.focus(); maybeAiMove(); }
+
+function setBoardInert(value) {
+  if (!boardEl) return;
+  document.querySelector('.board-wrap').inert = value;
+  document.querySelector('.game-top').inert = value;
+  document.querySelector('.game-bottom').inert = value;
+}
 
 function refreshSoundToggle() {
   const btn = document.getElementById('sound-toggle');
@@ -533,6 +582,7 @@ function refreshSoundToggle() {
 
 function openPromote() {
   promoteEl.classList.remove('hidden');
+  setBoardInert(true);
   setTimeout(() => {
     // Inject piece SVGs into the promotion buttons.
     promoteEl.querySelectorAll('[data-piece]').forEach(span => {
@@ -544,6 +594,7 @@ function openPromote() {
 function closePromote() {
   promoteEl.classList.add('hidden');
   state.pendingPromotion = null;
+  setBoardInert(false);
   boardEl.focus();
 }
 function pickPromotion(piece) {
@@ -556,6 +607,8 @@ function pickPromotion(piece) {
 // ==================== UNDO ====================
 function undoLastFullMove() {
   if (!state.game) return;
+  invalidateAi();
+  if (!state.game.history({ verbose: true }).some(move => move.color === state.human)) return;
   // Undo AI move (if last) and human move so it's the human's turn again.
   state.game.undo();
   if (state.game.turn() !== state.human) state.game.undo();
@@ -589,13 +642,17 @@ function loadData() {
     if (!raw) return;
     const p = JSON.parse(raw);
     if (!p) return;
-    state.game = new Chess();
-    if (p.pgn) state.game.loadPgn(p.pgn);
-    else if (p.fen) state.game.load(p.fen);
+    if (typeof p !== 'object' || (!p.pgn && !p.fen)) return;
+    const game = new Chess();
+    if (p.pgn) game.loadPgn(p.pgn);
+    else if (p.fen) game.load(p.fen);
+    state.game = game;
     state.human = (p.human === 'w' || p.human === 'b') ? p.human : 'w';
     // Migrate old 3-tier saves AND validate against current config.
     state.difficulty = resolveDifficulty(p.difficulty);
-    state.lastMove = p.lastMove || null;
+    const moves = game.history({ verbose: true });
+    const last = moves.at(-1);
+    state.lastMove = last ? { from: last.from, to: last.to, san: last.san } : null;
     state.cursor = state.human === 'w' ? { f: 4, r: 6 } : { f: 4, r: 1 };
   } catch (e) {
     state.game = null;
@@ -607,14 +664,19 @@ function setupEvents() {
   // Click → action
   document.addEventListener('click', (e) => {
     const a = e.target.closest('[data-action]');
-    if (a) { handleAction(a.dataset.action, a); return; }
+    if (a && !a.disabled) { handleAction(a.dataset.action, a); return; }
     const p = e.target.closest('[data-promote]');
     if (p) { pickPromotion(p.dataset.promote); return; }
     // Click on a board square also moves the cursor (helps desktop testing).
     const sq = e.target.closest('.sq');
-    if (sq && state.currentScreen === 'game') {
+    if (sq && state.currentScreen === 'game' && pauseEl.classList.contains('hidden') && promoteEl.classList.contains('hidden')) {
+      boardEl.focus();
       state.cursor = { f: parseInt(sq.dataset.f, 10), r: parseInt(sq.dataset.r, 10) };
       renderBoard();
+      activateCursor();
+      updateStatus();
+    } else if (e.target === boardEl && state.currentScreen === 'game' && pauseEl.classList.contains('hidden') && promoteEl.classList.contains('hidden')) {
+      // Meta pinch can synthesize click on the focused board, without coordinates.
       activateCursor();
     }
   });
@@ -623,6 +685,16 @@ function setupEvents() {
   document.addEventListener('keydown', (e) => {
     const inGame = state.currentScreen === 'game';
     const inModal = inGame && (!pauseEl.classList.contains('hidden') || !promoteEl.classList.contains('hidden'));
+    if (e.repeat && ['Enter', ' ', 'Escape', 'Backspace', 'GoBack', 'BrowserBack'].includes(e.key)) { e.preventDefault(); return; }
+    if (e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+      else document.getElementById('app').requestFullscreen?.().catch(() => {});
+      return;
+    }
+    if (e.key === 'Tab' && inModal) {
+      moveFocusInList(e.shiftKey ? 'up' : 'down'); e.preventDefault(); return;
+    }
 
     switch (e.key) {
       case 'ArrowUp':
@@ -644,7 +716,8 @@ function setupEvents() {
       case 'Enter':
       case ' ':
         if (inGame && !inModal) {
-          activateCursor();
+          if (document.activeElement?.matches('[data-action="open-pause"]')) document.activeElement.click();
+          else activateCursor();
           e.preventDefault();
         } else if (document.activeElement && document.activeElement.classList.contains('focusable')) {
           document.activeElement.click();
@@ -652,28 +725,62 @@ function setupEvents() {
         }
         break;
       case 'Escape':
-        if (inGame && !pauseEl.classList.contains('hidden')) {
-          closePause();
-        } else if (inGame && !promoteEl.classList.contains('hidden')) {
-          closePromote();
-        } else if (inGame) {
-          openPause();
-        } else {
-          navigateBack();
-        }
+      case 'Backspace':
+      case 'GoBack':
+      case 'BrowserBack':
+        handleBack();
         e.preventDefault();
         break;
     }
   });
+  window.addEventListener('resize', fitDisplay);
+  window.addEventListener('popstate', () => {
+    if (!backArmed) return;
+    backArmed = false;
+    handleBack();
+    armBackNavigation();
+  });
+}
+
+let backArmed = false;
+function armBackNavigation() {
+  if (state.currentScreen === 'menu' || backArmed) return;
+  try { history.pushState({metaChess:true}, '', location.href); backArmed = true; } catch {}
+}
+function handleBack() {
+  if (state.currentScreen !== 'game') { navigateBack(); return; }
+  if (!document.getElementById('confirm-resign').classList.contains('hidden')) { document.getElementById('confirm-resign').classList.add('hidden'); focusFirst(pauseEl); }
+  else if (!promoteEl.classList.contains('hidden')) closePromote();
+  else if (!pauseEl.classList.contains('hidden')) closePause();
+  else if (state.selected) { state.selected = null; renderBoard(); updateStatus(); }
+  else openPause();
+}
+function fitDisplay() {
+  document.documentElement.style.setProperty('--scale',Math.min(1,innerWidth/600,innerHeight/600));
 }
 
 // ==================== INIT ====================
 function init() {
   collectDom();
+  fitDisplay();
+  document.getElementById('hero-pieces').innerHTML = pieceSvg('n','b') + pieceSvg('k','w') + pieceSvg('p','w');
+  document.querySelectorAll('#side .opt-btn').forEach((button,i) => button.insertAdjacentHTML('afterbegin', `<span class="side-art" aria-hidden="true">${pieceSvg(i===2?'n':'k',i===1?'b':'w')}</span>`));
   setupEvents();
   loadData();
   sfx.armOnFirstGesture(); // browsers require a user gesture to start AudioContext
   navigateTo('menu', { addToHistory: false });
+  artReady.then(() => { repaintArt(); renderBoard(); });
+  window.render_game_to_text = () => JSON.stringify({
+    screen:state.currentScreen, human:state.human, difficulty:state.difficulty,
+    fen:state.game?.fen() || null, turn:state.game?.turn(), thinking:state.thinking,
+    cursor:squareName(state.cursor.f,state.cursor.r), selected:state.selected?.square || null,
+    legalTargets:state.selected?.moves.map(m=>m.to) || [], lastMove:state.lastMove,
+    modal:!document.getElementById('confirm-resign').classList.contains('hidden')?'resign':!promoteEl.classList.contains('hidden')?'promotion':!pauseEl.classList.contains('hidden')?'pause':null,
+    focus:document.activeElement?.dataset.action || document.activeElement?.id,
+    status:statusEl.textContent, coordinates:'a1 is White lower-left. Black view rotates 180 degrees; arrows follow screen direction.',
+  });
+  // Chess has no per-frame simulation. Advance waits for real worker/timer work.
+  window.advanceTime = ms => new Promise(resolve => setTimeout(resolve,Math.max(0,ms)));
 }
 
 if (document.readyState === 'loading') {

@@ -2,26 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" id="viewport" content="width=600, height=600, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" id="viewport" content="width=device-width, initial-scale=1">
+  <meta name="mrbd-web-app-capable" content="yes">
   <title>Chess for Display Glasses</title>
   <meta name="description" content="A simple, full-color chess game built for Meta Ray-Ban Display smart glasses.">
   <link rel="icon" type="image/png" sizes="128x128" href="favicon.png">
   <link rel="icon" type="image/png" sizes="512x512" href="favicon-512.png">
   <link rel="apple-touch-icon" href="favicon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css">
-  <script>
-    // On phones the 600x600 layout doesn't fit. Rewrite the viewport so the
-    // browser scales the whole page to the device width — playable, just zoomed.
-    (function () {
-      var w = Math.min(window.innerWidth, window.screen.width || 600);
-      if (w < 600) {
-        var vp = document.getElementById('viewport');
-        vp.setAttribute('content', 'width=600, initial-scale=' + (w / 600) + ', user-scalable=yes');
-        document.documentElement.classList.add('is-phone');
-      }
-    })();
-  </script>
+  <link rel="stylesheet" href="tabletop.css">
+
 </head>
 <body>
   <div id="app">
@@ -29,27 +19,12 @@
     <!-- ============== MAIN MENU ============== -->
     <div id="menu" class="screen">
       <div class="menu-wrap">
-        <div class="brand">
-          <div class="brand-mark">
-            <svg viewBox="0 0 100 100" class="brand-svg" aria-hidden="true">
-              <ellipse cx="50" cy="88" rx="33" ry="5" fill="#fff"/>
-              <path d="M 23 84 L 77 84 L 73 78 L 27 78 Z" fill="#fff"/>
-              <path d="M 29 78 L 71 78 L 65 58 L 35 58 Z" fill="#fff"/>
-              <ellipse cx="50" cy="56" rx="22" ry="4" fill="#fff"/>
-              <path d="M 32 54 Q 34 32 50 28 Q 66 32 68 54 Z" fill="#fff"/>
-              <rect x="34" y="22" width="32" height="8" fill="#fff"/>
-              <rect x="46" y="4" width="8" height="22" fill="#fff"/>
-              <rect x="40" y="10" width="20" height="6" fill="#fff"/>
-            </svg>
-          </div>
-          <h1 class="brand-title">CHESS</h1>
-          <div class="brand-sub">for Display Glasses</div>
+        <div class="menu-eyebrow">THE TABLETOP COLLECTION <span>01 / CHESS</span></div><div class="brand"><div class="brand-copy"><p class="brand-sub">A little focus. A great game.</p><h1 class="brand-title">Your next<br><em>move.</em></h1><p class="brand-caption">CHESS · PLAY THE COMPUTER</p></div><div class="brand-mark" id="hero-pieces" aria-hidden="true"></div></div><div class="menu-list">
+          <button class="menu-btn focusable primary" data-action="play">New game <span aria-hidden="true">↗</span></button>
+          <button class="menu-btn focusable" data-action="continue" id="continue-btn" hidden>Continue game</button>
+          <button class="menu-btn focusable" data-action="how">Controls & help</button>
         </div>
-        <div class="menu-list">
-          <button class="menu-btn focusable primary" data-action="play">Play vs Computer</button>
-          <button class="menu-btn focusable" data-action="continue" id="continue-btn" hidden>Continue Game</button>
-          <button class="menu-btn focusable" data-action="how">How to Play</button>
-        </div>
+        <p class="menu-hint">D-pad to move · Pinch to choose · Touch to play</p>
       </div>
     </div>
 
@@ -57,27 +32,27 @@
     <div id="difficulty" class="screen hidden">
       <header class="screen-header">
         <button class="back-btn focusable" data-action="back" aria-label="Back">&#8592;</button>
-        <h2>Difficulty</h2>
+        <h2>Choose your challenge</h2>
       </header>
       <div class="opt-list opt-list-compact">
         <button class="opt-btn focusable" data-action="diff-beginner">
-          <div class="opt-row"><div class="opt-title">Beginner</div><div class="opt-elo">~600</div></div>
+          <div class="opt-row"><div class="opt-title">Beginner</div><div class="opt-elo">LEARNING</div></div>
           <div class="opt-sub">Knows the moves, often blunders pieces</div>
         </button>
         <button class="opt-btn focusable" data-action="diff-casual">
-          <div class="opt-row"><div class="opt-title">Casual</div><div class="opt-elo">~1000</div></div>
+          <div class="opt-row"><div class="opt-title">Casual</div><div class="opt-elo">RELAXED</div></div>
           <div class="opt-sub">Plays for fun, occasional missed tactics</div>
         </button>
         <button class="opt-btn focusable" data-action="diff-intermediate">
-          <div class="opt-row"><div class="opt-title">Intermediate</div><div class="opt-elo">~1400</div></div>
+          <div class="opt-row"><div class="opt-title">Intermediate</div><div class="opt-elo">BALANCED</div></div>
           <div class="opt-sub">Solid club novice; punishes blunders</div>
         </button>
         <button class="opt-btn focusable" data-action="diff-advanced">
-          <div class="opt-row"><div class="opt-title">Advanced</div><div class="opt-elo">~1800</div></div>
+          <div class="opt-row"><div class="opt-title">Advanced</div><div class="opt-elo">TACTICAL</div></div>
           <div class="opt-sub">Strong club player; sharp tactics</div>
         </button>
         <button class="opt-btn focusable" data-action="diff-expert">
-          <div class="opt-row"><div class="opt-title">Expert</div><div class="opt-elo">~2200</div></div>
+          <div class="opt-row"><div class="opt-title">Expert</div><div class="opt-elo">DEMANDING</div></div>
           <div class="opt-sub">Tournament strength — challenging</div>
         </button>
       </div>
@@ -87,7 +62,7 @@
     <div id="side" class="screen hidden">
       <header class="screen-header">
         <button class="back-btn focusable" data-action="back" aria-label="Back">&#8592;</button>
-        <h2>Play as</h2>
+        <h2>Take your side</h2>
       </header>
       <div class="opt-list">
         <button class="opt-btn focusable" data-action="side-w">
@@ -107,13 +82,13 @@
 
     <!-- ============== GAME ============== -->
     <div id="game" class="screen hidden">
-      <div class="game-top">
+      <div class="game-top"><div class="game-brand">CHESS <span id="game-level">INTERMEDIATE</span></div>
         <div class="turn-pill" id="turn-pill">
           <span class="turn-dot" id="turn-dot"></span>
           <span id="turn-text">White to move</span>
         </div>
         <button class="icon-btn focusable" data-action="open-pause" aria-label="Menu">
-          <span class="icon-bars">&#9776;</span>
+          <span class="icon-bars">☰</span> Menu
         </button>
       </div>
 
@@ -123,37 +98,41 @@
              RIGHT = black pieces taken (black's losses).
              Counts at a glance tell you who's ahead on material. -->
         <div id="captured-white" class="captured-col" aria-label="White pieces captured"></div>
-        <div id="board" class="board focusable" tabindex="0" aria-label="Chess board"></div>
+        <div id="board" class="board focusable" tabindex="0" role="grid" aria-label="Chess board. Use arrows to move, pinch or Enter to select. Move up beyond the top row to reach Menu."><canvas id="board-art" width="500" height="500" aria-hidden="true"></canvas><div id="board-squares" class="board-squares"></div></div>
         <div id="captured-black" class="captured-col" aria-label="Black pieces captured"></div>
       </div>
 
       <div class="game-bottom">
-        <span id="last-move" class="last-move">&nbsp;</span>
-        <span id="status-text" class="status-text">&nbsp;</span>
+        <span id="last-move" class="last-move" aria-label="Last move">&nbsp;</span>
+        <span id="status-text" class="status-text" role="status">&nbsp;</span>
       </div>
 
       <!-- Pause / in-game menu modal -->
-      <div id="pause" class="modal hidden">
+      <div id="pause" class="modal hidden" role="dialog" aria-modal="true" aria-label="Game menu">
         <div class="modal-card">
-          <div class="modal-title">Paused</div>
+          <div class="modal-kicker">TAKE YOUR TIME</div><div class="modal-title">Game paused</div>
           <button class="menu-btn focusable primary" data-action="resume">Resume</button>
-          <button class="menu-btn focusable" data-action="undo">Undo Move</button>
+          <button class="menu-btn focusable" data-action="undo">Undo your turn</button>
           <button class="menu-btn focusable" data-action="toggle-sound" id="sound-toggle">Sound: On</button>
-          <button class="menu-btn focusable" data-action="new-game">New Game</button>
+          <button class="menu-btn focusable" data-action="new-game">New game</button>
           <button class="menu-btn focusable" data-action="resign">Resign</button>
           <button class="menu-btn focusable" data-action="to-menu">Main Menu</button>
         </div>
       </div>
 
+      <div id="confirm-resign" class="modal hidden" role="dialog" aria-modal="true" aria-label="Confirm resignation">
+        <div class="modal-card"><div class="modal-kicker">END THIS GAME?</div><div class="modal-title">Resign to the computer?</div><button class="menu-btn focusable primary" data-action="cancel-resign">Keep playing</button><button class="menu-btn focusable" data-action="confirm-resign">Yes, resign</button></div>
+      </div>
+
       <!-- Pawn promotion picker -->
-      <div id="promote" class="modal hidden">
+      <div id="promote" class="modal hidden" role="dialog" aria-modal="true" aria-label="Choose promotion">
         <div class="modal-card">
-          <div class="modal-title">Promote to</div>
+          <div class="modal-kicker">A PAWN EARNS ITS CROWN</div><div class="modal-title">Choose your piece</div>
           <div class="promote-row">
-            <button class="promote-btn focusable" data-promote="q" aria-label="Queen"><span class="promote-svg" data-piece="q"></span></button>
-            <button class="promote-btn focusable" data-promote="r" aria-label="Rook"><span class="promote-svg" data-piece="r"></span></button>
-            <button class="promote-btn focusable" data-promote="b" aria-label="Bishop"><span class="promote-svg" data-piece="b"></span></button>
-            <button class="promote-btn focusable" data-promote="n" aria-label="Knight"><span class="promote-svg" data-piece="n"></span></button>
+            <button class="promote-btn focusable" data-promote="q" aria-label="Queen"><span class="promote-svg" data-piece="q"></span><span>Queen</span></button>
+            <button class="promote-btn focusable" data-promote="r" aria-label="Rook"><span class="promote-svg" data-piece="r"></span><span>Rook</span></button>
+            <button class="promote-btn focusable" data-promote="b" aria-label="Bishop"><span class="promote-svg" data-piece="b"></span><span>Bishop</span></button>
+            <button class="promote-btn focusable" data-promote="n" aria-label="Knight"><span class="promote-svg" data-piece="n"></span><span>Knight</span></button>
           </div>
         </div>
       </div>
@@ -180,27 +159,13 @@
       <div class="how-content">
         <div class="how-row"><span class="how-key">&#9650;&#9660;&#9664;&#9654;</span><span>Move the cursor square</span></div>
         <div class="how-row"><span class="how-key">PINCH</span><span>Select your piece, then pinch on a green dot to move</span></div>
-        <div class="how-row"><span class="how-key">BACK</span><span>Open the menu (resume, undo, new game)</span></div>
-        <div class="how-row how-tip">Red dots show captures. Tap your piece again to deselect.</div>
+        <div class="how-row"><span class="how-key">BACK</span><span>Cancel a selection. Press again for the game menu.</span></div>
+        <div class="how-row"><span class="how-key">MENU</span><span>Move up past the top row, then pinch. Or tap Menu.</span></div>
+        <div class="how-row how-tip">Dots mark moves; outlined rings mark captures. Gold corners track the last move. F toggles fullscreen on desktop.</div>
       </div>
     </div>
 
   </div>
-
-  <!-- Phone-only hint (CSS-shown on small viewports). Sits outside #app so the
-       viewport-scale transform on phones doesn't shrink it. -->
-  <div id="phone-hint" class="phone-hint">Built for Meta Ray-Ban Display Glasses</div>
-
-  <!-- ===========================================================
-       Analytics (GoatCounter — privacy-light, no cookies, free for
-       personal use). To enable: sign up at https://www.goatcounter.com,
-       pick a subdomain, and replace YOURCODE below. Until then this
-       block stays commented so it doesn't 404 in users' browsers.
-       ============================================================ -->
-  <!--
-  <script data-goatcounter="https://YOURCODE.goatcounter.com/count"
-          async src="//gc.zgo.at/count.js"></script>
-  -->
 
   <script type="module" src="app.js"></script>
 </body>

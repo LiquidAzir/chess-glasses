@@ -21,6 +21,15 @@ class Engine {
     this.pending = null;    // { predicate(line) → bool, resolve(line), reject(err) }
   }
 
+  cancel() {
+    if (this.pending) { clearTimeout(this.pending.timer); this.pending.reject(new Error('Search cancelled')); }
+    this.pending = null;
+    this.sf?.terminate();
+    this.sf = null;
+    this.ready = false;
+    this.initPromise = null;
+  }
+
   // Lazy, idempotent init — first caller spawns Stockfish and runs the UCI
   // handshake; subsequent callers await the same promise.
   init() {
@@ -28,7 +37,7 @@ class Engine {
     this.initPromise = (async () => {
       this.sf = new Worker(STOCKFISH_URL);
       this.sf.onmessage = (e) => this._onMessageRaw(e.data);
-      this.sf.onerror = (e) => console.error('[stockfish]', e.message || e);
+      this.sf.onerror = (e) => { e.preventDefault(); if (this.pending) { clearTimeout(this.pending.timer); this.pending.reject(new Error('Computer engine unavailable')); this.pending = null; } };
       await this._send('uci', (l) => l === 'uciok');
       await this._send('isready', (l) => l === 'readyok');
       // Smaller hash than the default — keeps memory modest on the glasses.
@@ -94,7 +103,12 @@ class Engine {
         // normally fire, but guard against accidental overlap.
         return reject(new Error('engine busy'));
       }
-      this.pending = { predicate, resolve, reject };
+      const timer = setTimeout(() => {
+        if (this.pending?.resolve !== resolve) return;
+        this.pending = null;
+        reject(new Error('Computer engine timed out'));
+      }, 15000);
+      this.pending = { predicate, resolve, reject, timer };
       this.sf.postMessage(cmd);
     });
   }
@@ -107,6 +121,7 @@ class Engine {
       if (!line) continue;
       if (this.pending && this.pending.predicate(line)) {
         const { resolve } = this.pending;
+        clearTimeout(this.pending.timer);
         this.pending = null;
         resolve(line);
       }
