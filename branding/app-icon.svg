@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Chess knight">
+  <defs>
+    <linearGradient id="chess-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#263B68"/>
+      <stop offset="1" stop-color="#091426"/>
+    </linearGradient>
+    <linearGradient id="chess-ivory" x1="0" y1="0" x2="0.8" y2="1">
+      <stop stop-color="#FFF9E7"/>
+      <stop offset="1" stop-color="#D9DFE2"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#chess-bg)"/>
+  <path d="M40 97c1-13 6-23 17-31l-10 4-16-7 16-25 7-5-1-9 12 7c17-2 28 11 27 28-1 16-13 22-7 38Z" fill="#050E20" opacity=".5"/>
+  <path d="M41 89c1-12 7-23 19-31l-14 6-17-7 16-24 6-4-1-7 12 6c17-3 28 10 27 27-1 16-14 22-6 34Z" fill="url(#chess-ivory)"/>
+  <path d="M65 32c12 3 17 12 16 23-1 11-12 19-8 34h10c-8-12 5-19 6-34 1-17-10-30-27-27Z" fill="#A9BFCE"/>
+  <path d="m32 57 14 7 9-4-13-5Z" fill="#BECBD2"/>
+  <circle cx="56" cy="40" r="3.4" fill="#142640"/>
+  <path d="m42 50-5 3" fill="none" stroke="#36506C" stroke-width="3.5" stroke-linecap="round"/>
+  <rect x="39" y="87" width="47" height="8" rx="4" fill="#F6F0DF"/>
+  <rect x="32" y="95" width="62" height="11" rx="5.5" fill="#050E20" opacity=".5"/>
+  <path d="M39 94h47a7 7 0 0 1 7 7v3H32v-3a7 7 0 0 1 7-7Z" fill="url(#chess-ivory)"/>
+</svg>
